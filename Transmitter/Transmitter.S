@@ -10,7 +10,6 @@
 ;===============================================================
 main:
 ;--------------
-
     RCALL SPI_MAX7219_init
     RCALL MAX7219_disp_text
 
@@ -23,13 +22,19 @@ agn:SBI   PORTB, 1
     RCALL delay_timer0
     CBI   PORTB, 1        ;send 10us high pulse to sensor
     ;-----------------------------------------------------------
-    RCALL echo_PW         ;compute Echo pulse width count
+    RCALL rate_echo_PW    ;compute Echo pulse width count
     ;-----------------------------------------------------------
     RCALL byte2decimal    ;covert & display on MAX7219
     ;-----------------------------------------------------------
     RCALL delay_ms
     RJMP  agn
 ;===============================================================
+rate_echo_PW:
+    CLR   R28
+    CLR   R31
+    CLR   R30
+    CLR   R24
+    LDI   R24, 5
 echo_PW:
 ;-------
     LDI   R20, 0b00000000
@@ -55,6 +60,17 @@ l2: IN    R21, TIFR1
     ;-----------------------------------------------------------
     SUB   R28, R16        ;count diff R22 = R22 - R16
     OUT   TIFR1, R21      ;clear flag for next sensor reading
+l3: CPI   R24, 0
+    BREQ  l4
+    ADD   R31, R28
+    SUBI  R24, 1 
+    RJMP  l3
+l4: CPI   R31, 5
+    BRMI  l5
+    INC   R30
+    SUBI  R31, 5
+    RJMP  l4
+l5: SUBI  R30, -1
     RET
 ;===============================================================
 ;MAX7219 subroutines
@@ -138,54 +154,33 @@ min10LED:
       LDI   R25, 0x04
       OUT   PORTC, R25
       RJMP  l80
-
 min20LED:
       LDI   R25, 0x02
       OUT   PORTC, R25
       RJMP  l80 
-
 min30LED:
       LDI   R25, 0x01
       OUT   PORTC, R25
       RJMP  l80
-
-
-
 ;==============================================================
 byte2decimal:
 ;------------
       CLR   R26             ;set counter1, initial value 0
       CLR   R27             ;set counter2, initial value 0
-      CLR   R30             ;set counter3, initial value 0
-      MOV   R24, R28
-      LDI   R28, 30
-      SUB   R28, R24
-      CPI   R28, 11
+      MOV   R24, R30
+      LDI   R30, 30
+      SUB   R30, R24
+      CPI   R30, 11
       BRMI  min10LED
-      CPI   R28, 21
+      CPI   R30, 21
       BRMI  min20LED
-      CPI   R28, 31
+      CPI   R30, 31
       BRMI  min30LED
-      LDI   R24, 5
-      MOV   R29, R28
       ;--------------------------------------------------------
-l70: 
-      CPI   R24, 0
-      BREQ  l75
-      ADD   R28, R29
-      SUBI  R24, 1
-      RJMP  l70
-      ;--------------------------------------------------------
-l75:  CPI   R28, 5
-      BRMI  l80
-      SUBI  R30, 1
-      SUBI  R28, 5
-      RJMP  l75
-      ;--------------------------------------------------------
-l80:  CPI   R28, 10         ;compare R28 with 10
-      BRMI  dsp             ;jump when R28 < 10
+l80:  CPI   R30, 10         ;compare R30 with 10
+      BRMI  dsp             ;jump when R30 < 10
       INC   R27             ;increment counter2 by 1
-      SUBI  R28, 10         ;R28 = R28 - 10
+      SUBI  R30, 10         ;R30 = R30 - 10
       RJMP  l80
       ;--------------------------------------------------------
 dsp:  
@@ -193,7 +188,7 @@ dsp:
       LDI   R17, 0x02       ;select digit 1 for MSD
       RCALL send_bytes      ;send command & data to MAX7219
       ;--------------------------------------------------------
-      MOV   R18, R28
+      MOV   R18, R30
       LDI   R17, 0x01       ;select digit 0 for LSD
       RCALL send_bytes      ;send command & data to MAX7219    
       ;--------------------------------------------------------
